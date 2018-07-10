@@ -76,6 +76,14 @@ public class DefaultEventCriticalLevelLoader implements IEventCriticalLevelLoade
 		int spotRequestsClosedEventCriticalLevel = getCriticalLevel(spotRequestsClosedBeforeFullfillmentEvent);
 		criticalLevels.put(Events.SPOT_REQUESTS_CLOSED_BEFORE_FULLFILLMENT_EVENT, spotRequestsClosedEventCriticalLevel);
 		
+		String requestEstimateEvent = properties.getProperty(Events.REQUEST_ESTIMATE_EVENT);
+		int requestEstimateCriticalLevel = getCriticalLevel(requestEstimateEvent);
+		criticalLevels.put(Events.REQUEST_ESTIMATE_EVENT, requestEstimateCriticalLevel);
+		
+		String requestForecastEvent = properties.getProperty(Events.REQUEST_FORECAST_EVENT);
+		int requestForecastCriticalLevel = getCriticalLevel(requestEstimateEvent);
+		criticalLevels.put(Events.REQUEST_FORECAST_EVENT, requestForecastCriticalLevel);
+		
 		return criticalLevels;
 	}
 

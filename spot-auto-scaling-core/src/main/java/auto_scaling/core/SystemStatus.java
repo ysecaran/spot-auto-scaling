@@ -1,4 +1,4 @@
-package auto_scaling.core;
+	package auto_scaling.core;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -82,6 +82,8 @@ public class SystemStatus {
 	* @Fields overLoaded : whether the application is overloaded
 	*/ 
 	protected boolean overLoaded;
+	
+	protected double forecastTimeWindow;
 
 	/** 
 	* <p>Description: empty initialization</p>  
@@ -95,6 +97,7 @@ public class SystemStatus {
 		faultTolerantLevel = FaultTolerantLevel.ONE;
 		isSpotEnabled = false;
 		overLoaded = false;
+		forecastTimeWindow = 0.0;
 	}
 
 	/**
@@ -176,6 +179,14 @@ public class SystemStatus {
 		}
 
 		return systemStatus;
+	}
+	
+	public double getForecastTimeWindow() {
+		return forecastTimeWindow;
+	}
+
+	public void setForecastTimeWindow(double forecastTimeWindow) {
+		this.forecastTimeWindow = forecastTimeWindow;
 	}
 
 	/**

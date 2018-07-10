@@ -20,6 +20,8 @@ import auto_scaling.handler.SpotInstancesTerminationEventHandler;
 import auto_scaling.handler.SpotPriceUpdateEventHandler;
 import auto_scaling.handler.SpotRequestsClosedBeforeFullfillmentEventHandler;
 import auto_scaling.handler.TargetSystemStatusEventHandler;
+import auto_scaling.handler.cloudsim.CloudSimRequestEstimationHandler;
+import auto_scaling.handler.cloudsim.CloudSimRequestForecastHandler;
 import auto_scaling.handler.cloudsim.CloudSimScalingEventHandler;
 import auto_scaling.monitor.Monitor;
 import auto_scaling.monitor.Monitors;
@@ -83,6 +85,18 @@ public class CloudSimEventHandlersLoader implements IEventHandlersLoader {
 		ResourceRequirementUpdateEventHandler resourceRequirementUpdateEventHandler = (ResourceRequirementUpdateEventHandler)(Class.forName(resourceRequirementUpdateEventHandlerClass).newInstance());
 		resourceRequirementUpdateEventHandler.setCapacityCalculator(capacityCalculator);
 		eventHandlers.put(Events.RESOURCE_REQUIREMENT_UPDATE_EVENT, resourceRequirementUpdateEventHandler);
+		
+		String requestEstimationEventHandlerClass = properties.getProperty(EventHandlers.REQUEST_ESTIMATION_EVENT_HANDLER);
+		CloudSimRequestEstimationHandler requestEstimationEventHandler = (CloudSimRequestEstimationHandler)(Class.forName(requestEstimationEventHandlerClass).newInstance());
+		requestEstimationEventHandler.setCapacityCalculator(capacityCalculator);
+		
+		eventHandlers.put(Events.REQUEST_ESTIMATE_EVENT, requestEstimationEventHandler);
+		
+		String requestForecastEventHandlerClass = properties.getProperty(EventHandlers.REQUEST_FORECAST_EVENT_HANDLER);
+		CloudSimRequestForecastHandler requestForecastEventHandler = (CloudSimRequestForecastHandler)(Class.forName(requestForecastEventHandlerClass).newInstance());
+		
+		eventHandlers.put(Events.REQUEST_FORECAST_EVENT, requestForecastEventHandler);
+		
 		
 		String scalingEventHandlerClass = properties.getProperty(EventHandlers.SCALING_EVENT_HANDLER);
 		CloudSimScalingEventHandler scalingEventHandler = (CloudSimScalingEventHandler)(Class.forName(scalingEventHandlerClass).newInstance());

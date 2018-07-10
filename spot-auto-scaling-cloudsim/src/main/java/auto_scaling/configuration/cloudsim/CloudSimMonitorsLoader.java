@@ -17,6 +17,7 @@ import auto_scaling.monitor.cloudsim.CloudSimMemoryUtilizationMonitor;
 import auto_scaling.monitor.cloudsim.CloudSimSpotPriceMonitor;
 import auto_scaling.monitor.cloudsim.CloudSimSpotRequestsMonitor;
 import auto_scaling.monitor.cloudsim.CloudSimVMStatusMonitor;
+import auto_scaling.monitor.cloudsim.RequestEstimationMonitor;
 
 /** 
 * @ClassName: CloudSimMonitorsLoader 
@@ -73,6 +74,10 @@ public class CloudSimMonitorsLoader implements IMonitorsLoader {
 		int vmStatusMonitorInterval = Integer.parseInt(properties.getProperty(VM_STATUS_MONITOR_INTERVAL));
 		Monitor vmStatusMonitor = new CloudSimVMStatusMonitor(Monitors.VM_STATUS_MONITOR, vmStatusMonitorInterval);
 		monitors.put(Monitors.VM_STATUS_MONITOR, vmStatusMonitor);
+		
+		int requestEstimationMonitorInterval = Integer.parseInt(properties.getProperty(REQUEST_ESTIMATE_MONITOR_INTERVAL));
+		Monitor requestEstimateMonitor = new RequestEstimationMonitor(Monitors.REQUEST_ESTIMATION_MONITOR, requestEstimationMonitorInterval);
+		monitors.put(Monitors.REQUEST_ESTIMATION_MONITOR, requestEstimateMonitor);
 		
 		return monitors;
 	}

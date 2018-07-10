@@ -84,6 +84,14 @@ public class EventGenerator {
 			return new SpotPriceUpdateEvent(criticalLevels.get(Events.SPOT_PRICE_UPDATE_EVENT));
 		}
 		
+		if (eventName.equals(Events.REQUEST_ESTIMATE_EVENT)) {
+			return new RequestEstimateEvent(criticalLevels.get(Events.REQUEST_ESTIMATE_EVENT));
+		}
+		
+		if (eventName.equals(Events.REQUEST_FORECAST_EVENT)) {
+			return new RequestForecastEvent(criticalLevels.get(Events.REQUEST_FORECAST_EVENT));
+		}
+		
 		if (eventName.equals(Events.SCALING_EVENT)) {
 			if (!data.containsKey(EventDataName.SCALING_PLAN)) {
 				throw new IllegalArgumentException(data + " doesn't containt " + EventDataName.SCALING_PLAN);

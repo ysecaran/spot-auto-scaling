@@ -20,5 +20,7 @@ public class EventHandlers {
 	public static final String SPOT_PRICE_UPDATE_EVENT_HANDLER = "spot_price_update_event_handler";
 	public static final String TARGET_SYSTEM_STATUS_EVENT_HANDLER = "target_system_status_event_handler";
 	public static final String SPOT_REQUESTS_CLOSED_BEFORE_FULLFILLMENT_EVENT_HANDLER = "spot_requests_closed_before_fullfillment_event_handler";
+	public static final String REQUEST_ESTIMATION_EVENT_HANDLER = "request_estimate_event_handler";
+	public static final String REQUEST_FORECAST_EVENT_HANDLER = "request_forecast_event_handler";
 	
 }

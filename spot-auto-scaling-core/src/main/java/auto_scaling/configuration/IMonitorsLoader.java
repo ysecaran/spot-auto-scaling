@@ -25,6 +25,7 @@ public interface IMonitorsLoader {
 	static final String SPOT_REQUESTS_MONITOR_INTERVAL = "spot_requests_monitor_interval";
 	static final String SPOT_REQUESTS_MONITOR_OS = "spot_requests_monitor_os";
 	static final String VM_STATUS_MONITOR_INTERVAL = "vm_status_monitor_interval";
+	static final String REQUEST_ESTIMATE_MONITOR_INTERVAL ="request_estimate_monitor_interval";
 	
 	/**
 	 * @Title: loadMonitors 

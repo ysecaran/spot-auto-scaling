@@ -1,9 +1,14 @@
 package auto_scaling.core.cloudsim;
 
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,10 +21,19 @@ import org.cloudbus.cloudsim.core.SimEvent;
 import org.cloudbus.cloudsim.ex.MonitoringBorkerEX;
 import org.cloudbus.cloudsim.lists.VmList;
 
+import auto_scaling.cloud.InstanceStatus;
+import auto_scaling.cloud.OnDemandInstanceStatus;
+import auto_scaling.cloud.SpotInstanceStatus;
+import auto_scaling.cloud.cloudsim.CloudSimPendingSpotInstanceStatus;
 import auto_scaling.core.EventProcessor;
+import auto_scaling.core.SystemStatus;
 import auto_scaling.core.cloudsim.workload.IWorkloadGenerator;
+import auto_scaling.loadbalancer.LoadBalancer;
+import auto_scaling.loadbalancer.cloudsim.CloudSimLoadBalancer;
 import auto_scaling.monitor.Monitor;
 import auto_scaling.util.LogFormatter;
+import auto_scaling.util.cloudsim.SystemUtil;
+import auto_scaling.util.cloudsim.TimeConverter;
 
 /** 
 * @ClassName: CloudSimBroker 
@@ -43,7 +57,9 @@ import auto_scaling.util.LogFormatter;
 *  
 */
 public class CloudSimBroker extends MonitoringBorkerEX {
-
+	
+	private static Logger costLog = LogManager.getLogger(CloudSimBroker.class);
+	
 	/** 
 	* @Fields TIMER_TAG : the tag to submit cloudlets
 	*/ 
@@ -56,6 +72,18 @@ public class CloudSimBroker extends MonitoringBorkerEX {
 	* @Fields APP_EVENTS : the tag to process events
 	*/ 
 	protected static final int APP_EVENTS = APP_MONITORS + 1;
+	
+	protected static final int COST_CALC = BROKER_DESTROY_ITSELF_NOW + 25;
+	
+	protected int cloudletFailed;
+	
+	protected int totalSubmittedCloudlets;
+	
+	protected int cloudletSuccess;
+	
+	protected double totalResponseTime;
+	
+	protected int cloudletCancelled;
 
 	/** 
 	* @Fields offset : minimum time interval between events
@@ -131,6 +159,10 @@ public class CloudSimBroker extends MonitoringBorkerEX {
 		setWorkloadGenerator(workloadGenerator);
 		setMonitors(monitors);
 		setEventProcessor(eventProcessor);
+		cloudletFailed = 0;
+		cloudletSuccess = 0;
+		cloudletCancelled = 0;
+		totalResponseTime = 0.0;
 		this.logFormatter = LogFormatter.getLogFormatter();
 	}
 
@@ -268,6 +300,7 @@ public class CloudSimBroker extends MonitoringBorkerEX {
 			send(getId(), offset, TIMER_TAG);
 			send(getId(), offset, APP_MONITORS);
 			send(getId(), offset, APP_EVENTS);
+			send(getId(), getLifeLength(), COST_CALC);
 		}
 
 		super.processEvent(ev);
@@ -355,9 +388,11 @@ public class CloudSimBroker extends MonitoringBorkerEX {
 				cloudlet.setVmId(vm.getId());
 				sendNow(getVmsToDatacentersMap().get(vm.getId()),
 						CloudSimTags.CLOUDLET_SUBMIT, cloudlet);
+				totalSubmittedCloudlets++;
 				cloudletsSubmitted++;
 			}
 		}
+	//	cloudSimBrokerLog.info("Time:"+CloudSim.clock()+"\t Cloudlets Submitted:"+cloudletsSubmitted+"\t Total Submitted:"+totalSubmittedCloudlets);
 	}
 
 	
@@ -370,7 +405,22 @@ public class CloudSimBroker extends MonitoringBorkerEX {
 	@Override
 	protected void processCloudletReturn(SimEvent ev) {
 		Cloudlet cloudlet = (Cloudlet) ev.getData();
-		cloudSimBrokerLog.info(logFormatter.getMessage(cloudlet.getSubmissionTime() + " " + cloudlet.getCloudletStatusString() + " " + (cloudlet.getFinishTime() - cloudlet.getSubmissionTime())));
+		
+//		System.out.println("ID: "+cloudlet.getCloudletId()+" Message:"+ logFormatter.getMessage(cloudlet.getSubmissionTime() + " " + cloudlet.getCloudletStatusString() + "Finished at: " + cloudlet.getFinishTime()+" Time taken "+(cloudlet.getFinishTime() - cloudlet.getSubmissionTime())));
+		//cloudSimBrokerLog.info(logFormatter.getMessage(cloudlet.getSubmissionTime() + " " + cloudlet.getCloudletStatusString() + " " + (cloudlet.getFinishTime() - cloudlet.getSubmissionTime())));
+		if(cloudlet.getStatus() == Cloudlet.FAILED) {
+//			cloudSimBrokerLog.info(logFormatter.getMessage(cloudlet.getSubmissionTime() + " \t" + cloudlet.getCloudletStatusString() + "\t " + (cloudlet.getFinishTime() - cloudlet.getSubmissionTime()+"\t Length:"+cloudlet.getCloudletLength())));
+//			cloudSimBrokerLog.info(cloudlet.getCloudletLength());
+			cloudletFailed++;
+		}
+		else if(cloudlet.getStatus() == Cloudlet.SUCCESS) {
+			totalResponseTime += (cloudlet.getFinishTime() - cloudlet.getSubmissionTime());
+			//cloudSimBrokerLog.info("Finish time:"+cloudlet.getFinishTime()+"\tStart Time:"+cloudlet.getSubmissionTime()+"\tTime taken:"+totalResponseTime);
+			cloudletSuccess++;
+		}
+		else if(cloudlet.getStatus() == Cloudlet.CANCELED) {
+			cloudletCancelled++;
+		}
 		cloudletsSubmitted--;
 	}
 	
@@ -412,6 +462,7 @@ public class CloudSimBroker extends MonitoringBorkerEX {
 	@Override
 	protected void processOtherEvent(final SimEvent ev) {
 		double time = CloudSim.clock();
+//		System.out.println("Time:"+time+"\t Event Tag:"+ev.getTag());
 		switch (ev.getTag()) {
 		case TIMER_TAG:
 			//generate and submit workloads
@@ -428,12 +479,17 @@ public class CloudSimBroker extends MonitoringBorkerEX {
 					finishExecution();
 				}
 			}
+			else {
+			}
 			break;
 		case APP_MONITORS:
 			//do monitoring
 			if (time < getLifeLength()) {
 				send(getId(), appMonitorsPeriod, APP_MONITORS);
 				doAppMonitoring();
+				//Writing down the capacities
+				//Recording the utilizations
+				//send(getId(),appMonitorsPeriod,BROKER_RECORD_UTIL_NOW);
 			}
 			break;
 		case APP_EVENTS:
@@ -443,6 +499,87 @@ public class CloudSimBroker extends MonitoringBorkerEX {
 				doAppEventProcessing();
 			}
 			break;
+		case COST_CALC:
+			cloudSimBrokerLog.info("Cost Calculation event invoked");
+			if(time <= getLifeLength()) {
+				cloudSimBrokerLog.info("Total Failed Cloudlet:"+cloudletFailed);
+				cloudSimBrokerLog.info("Total successful clouldlets:"+cloudletSuccess);
+				cloudSimBrokerLog.info("Total submitted Cloudlet:"+totalSubmittedCloudlets);
+				cloudSimBrokerLog.info("Cancelled Cloudlets:"+cloudletCancelled);
+				cloudSimBrokerLog.info("Total Response time:"+totalResponseTime);
+				double avgResponseTime = (totalResponseTime / cloudletSuccess);
+				cloudSimBrokerLog.info("Average response time:" + avgResponseTime);
+				//Calculating cost of the already used instances that were recorded as part of LoadBalancer
+				CloudSimLoadBalancer lb = (CloudSimLoadBalancer) LoadBalancer.getLoadBalancer();
+				Map<String, Double> cost = lb.getCostOfInstances();
+				 Iterator<String> keysIterator = cost.keySet().iterator();
+				 double totalCost = 0.0;
+				 while(keysIterator.hasNext()) {
+					 totalCost += cost.get(keysIterator.next());
+				 }
+				cloudSimBrokerLog.info("Total cost of used:offline instances:"+totalCost);
+				//There are situations where in when the lb still has instances attached to it that are removed after the
+				//end of simulation. Calculating the cost of instances that are still attached to the LB
+				Map<String, Date> billableInstances = lb.getBillableInstances();
+				Map<String,Double> costOfInstancesOnline = new HashMap<String,Double>();
+				SystemStatus status = SystemStatus.getSystemStatus();
+				if(status!=null) {
+					cloudSimBrokerLog.info("Status not null");
+				
+				Collection<InstanceStatus> onDemand = status.getOnDemandInstances();
+				Collection<InstanceStatus> spot = status.getSpotInstances();
+				cloudSimBrokerLog.info("On demand instances:");
+				for(InstanceStatus i : onDemand) {
+					OnDemandInstanceStatus temp = (OnDemandInstanceStatus)i;
+					double usageInHours = SystemUtil.getUsageInHours(temp.getLaunchTime(),TimeConverter.convertSimulationTimeToDate(getLifeLength()));
+					double price = SystemUtil.getInstancePrice(temp);
+					double costOfUsage = usageInHours * price;
+					costOfInstancesOnline.put(temp.getId(), costOfUsage);
+					cloudSimBrokerLog.info("Id:"+temp.getId()+"\tUsage:"+usageInHours+"Cost Of Usage:"+costOfUsage);
+//					cloudSimBrokerLog.info(temp.getId()+"\t Running status:"+temp.getRunningStatus()+"\tPrice:"+temp.getType().getOnDemandPrice());
+				}
+				cloudSimBrokerLog.info("Spot instances:");
+				for(InstanceStatus i : spot) {
+					SpotInstanceStatus temp = (SpotInstanceStatus)i;
+					if(temp instanceof CloudSimPendingSpotInstanceStatus) {
+						cloudSimBrokerLog.info("Alert! Ignoring the Pending spot instance status yet to be fulfilled");
+						continue;
+					}
+					double usageInHours = SystemUtil.getUsageInHours(temp.getLaunchTime(),TimeConverter.convertSimulationTimeToDate(getLifeLength()));
+					double price = SystemUtil.getInstancePrice(temp);
+					double costOfUsage = usageInHours * price;
+					costOfInstancesOnline.put(temp.getId(), costOfUsage);
+					cloudSimBrokerLog.info("Id:"+temp.getId()+"\tUsage:"+usageInHours+"Cost Of Usage:"+costOfUsage);
+//					cloudSimBrokerLog.info(temp.getId()+"\t Running status:"+temp.getRunningStatus()+"\t Market Price:"+marketPrice+"\tLaunch Time:"+launchTime.toString());
+				}
+				Iterator<String> keys = costOfInstancesOnline.keySet().iterator();
+				 double totalCostOfInstancesOnline = 0.0;
+				 while(keys.hasNext()) {
+					 totalCostOfInstancesOnline += costOfInstancesOnline.get(keys.next());
+				 }
+				 cloudSimBrokerLog.info("Total cost of instances online:"+totalCostOfInstancesOnline);
+				 double finalcost = totalCostOfInstancesOnline + totalCost;
+				 cloudSimBrokerLog.info("Final cost of auto scaling:"+ finalcost);
+				}
+				else { cloudSimBrokerLog.info("Status is null");}
+			}
+//			cloudSimBrokerLog.info("Reading the recorded utilization");
+//			LinkedHashMap<Double, Map<Integer, double[]>> temp = this.getRecordedUtilisations();
+//			//Looping thru time
+//			Iterator<Entry<Double, Map<Integer, double[]>>> keyIterator = temp.entrySet().iterator();
+//			while(keyIterator.hasNext()) {
+//				Entry<Double, Map<Integer, double[]>> utilEntry = keyIterator.next();
+//				cloudSimBrokerLog.info("Time:"+utilEntry.getKey());
+//				 Map<Integer, double[]> item = utilEntry.getValue();
+//				 Iterator<Entry<Integer, double[]>> utilIterator = item.entrySet().iterator();
+//				 while(utilIterator.hasNext()) {
+//					 Entry<Integer, double[]> vmEntry = utilIterator.next();
+//					 double[] utilValue = vmEntry.getValue();
+//					 cloudSimBrokerLog.info("Vm ID:"+vmEntry.getKey()+"\t Utilization:"+utilValue[0]+"\t "+utilValue[1]+"\t "+utilValue[2]);
+//				 }
+//			}
+			break;
+			
 		default:
 			super.processOtherEvent(ev);
 		}
@@ -471,11 +608,23 @@ public class CloudSimBroker extends MonitoringBorkerEX {
 			if (time >= monitorInterval + lastMonitoringTime) {
 				try {
 					monitor.doMonitoring();
+					recordCapacity();
 				} catch (Exception e) {
 					
 				}
 				monitors.put(monitor, time);
 			}
+		}
+	}
+	
+	protected void recordCapacity() {
+		cloudSimBrokerLog.info(CloudSim.clock());
+		SystemStatus currentStatus = SystemStatus.getSystemStatus();
+		synchronized (currentStatus) {
+			
+			cloudSimBrokerLog.info("Available:"+currentStatus.getAvailableCapacity());
+			cloudSimBrokerLog.info("Nominal:"+currentStatus.getNominalCapacity());
+			cloudSimBrokerLog.info("No. of requests:"+currentStatus.getTotalNumOfRequests());
 		}
 	}
 }

@@ -1,5 +1,7 @@
 package auto_scaling.util.cloudsim;
 
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 
 /** 
@@ -25,6 +27,15 @@ public class TimeConverter {
 	 */
 	public static Date convertSimulationTimeToDate(double simulationTime) {
 		return new Date(simulationStartTime.getTime() + (long)simulationTime * 1000);
+	}
+	
+	public static String convertSimulationTimeToString(double simulationTime) {
+		Date temp = new Date(simulationStartTime.getTime() + (long) simulationTime * 1000);
+		SimpleDateFormat sd = new SimpleDateFormat("MM/dd/yyyy,HH:mm:ss");
+		String d = sd.format(temp);
+//		System.out.println(d);
+		return d;
+		
 	}
 	
 	/**

@@ -3,14 +3,18 @@ package auto_scaling.core.cloudsim;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -30,6 +34,7 @@ import org.cloudbus.cloudsim.provisioners.PeProvisionerSimple;
 import org.cloudbus.cloudsim.provisioners.RamProvisionerSimple;
 
 import auto_scaling.capacity.ICapacityCalculator;
+import auto_scaling.cloud.InstanceStatus;
 import auto_scaling.cloud.InstanceTemplate;
 import auto_scaling.cloud.OnDemandInstanceStatus;
 import auto_scaling.cloud.RunningStatus;
@@ -53,9 +58,12 @@ import auto_scaling.core.SpotInstanceScalar;
 import auto_scaling.core.SystemStatus;
 import auto_scaling.core.cloudsim.workload.IWorkloadGenerator;
 import auto_scaling.event.EventGenerator;
+import auto_scaling.event.Events;
 import auto_scaling.handler.EventHandler;
 import auto_scaling.handler.EventHandlerManager;
+import auto_scaling.handler.cloudsim.CloudSimRequestEstimationHandler;
 import auto_scaling.loadbalancer.LoadBalancer;
+import auto_scaling.loadbalancer.cloudsim.CloudSimLoadBalancer;
 import auto_scaling.monitor.Monitor;
 import auto_scaling.util.LogFormatter;
 import auto_scaling.util.cloudsim.CloudSimLogFormatter;
@@ -111,6 +119,7 @@ public class CloudSimSpotInstanceScalar extends SpotInstanceScalar{
 	private static final String SUMMARY_PERIOD_LENGTH = "summary_period_length";
 	private static final String LIFE_LENGTH = "life_length";
 	private static final String REQUEST_TIMEOUT = "request_timeout";
+	private static final String FORECAST_TIME = "forecast_time";
 	
 	/**
 	 * @Title: main 
@@ -133,14 +142,14 @@ public class CloudSimSpotInstanceScalar extends SpotInstanceScalar{
 		try {
 			LogFormatter.initialize(CloudSimLogFormatter.class);
 		} catch (InstantiationException | IllegalAccessException e) {
-			System.out.println("initialize log failed");
+//			System.out.println("initialize log failed");
 			e.printStackTrace();
 			System.exit(1);
 		}
 		LogFormatter logFormatter = LogFormatter.getLogFormatter();
 		
 		if (args.length < 2) {
-			System.out.println("parameters properties_file start_simulation_time");
+//			System.out.println("parameters properties_file start_simulation_time");
 			System.exit(1);
 		}
 		
@@ -162,12 +171,12 @@ public class CloudSimSpotInstanceScalar extends SpotInstanceScalar{
 		mainLog.info(logFormatter.getMessage("initializing data center setting"));
 		int numUser = 1;
 		Calendar calendar = Calendar.getInstance();
-		boolean traceFlag = false;
+		boolean traceFlag = true;
 		CloudSim.init(numUser, calendar, traceFlag);
 		
 		try {
 			@SuppressWarnings("unused")
-			DatacenterEX datecenter = createDatacenter("Datacenter_0", 50);
+			DatacenterEX datecenter = createDatacenter("Datacenter_0", 5);
 			
 		} catch (Exception e) {
 			mainLog.fatal(logFormatter.getExceptionString(e));
@@ -265,6 +274,7 @@ public class CloudSimSpotInstanceScalar extends SpotInstanceScalar{
 		}
 		SystemStatus systemStatus = SystemStatus.getSystemStatus();
 		systemStatus.setFaultTolerantLevel(faultTolerantLevel);
+		systemStatus.enableSpot();
 		mainLog.info(logFormatter.getMessage("End Initializing System Status"));
 		
 		mainLog.info(logFormatter.getMessage("Initializng Cloudlet Factory"));
@@ -392,6 +402,8 @@ public class CloudSimSpotInstanceScalar extends SpotInstanceScalar{
 		int appMonitoringPeriod = Integer.parseInt(properties.getProperty(APP_MONITORING_PERIOD));
 		int appEventPeriod = Integer.parseInt(properties.getProperty(APP_EVENT_PERIOD));
 		double lifeLength = Integer.parseInt(properties.getProperty(LIFE_LENGTH));
+		double forecastTime = Integer.parseInt(properties.getProperty(FORECAST_TIME));
+		systemStatus.setForecastTimeWindow(forecastTime);
 		CloudSimBroker cloudSimBroker = null;
 		try {
 			cloudSimBroker = getCloudSimBroker(lifeLength, monitoringPeriod, stepPeriod, appMonitoringPeriod, appEventPeriod, workloadGenerator, monitors.values(), eventProcessor);
@@ -416,11 +428,12 @@ public class CloudSimSpotInstanceScalar extends SpotInstanceScalar{
 		mainLog.info(logFormatter.getMessage("Initializing Load Balancer"));
 		String loadBalancerLoaderClass = properties.getProperty(LOAD_BALANCER_LOADER);
 		String loadBalancerFile = properties.getProperty(LOAD_BALANCER_CONFIGURATION_FILE);
+		LoadBalancer loadBalancer = null;
 		try {
 			ILoadBalancerLoader loadBalancerLoader = (ILoadBalancerLoader)(Class.forName(loadBalancerLoaderClass).newInstance());
 			File file = new File(directory, loadBalancerFile);
 			InputStream lbStream = new FileInputStream(file);
-			LoadBalancer loadBalancer = loadBalancerLoader.load(lbStream);
+			loadBalancer = loadBalancerLoader.load(lbStream);
 			LoadBalancer.setLoadBalancer(loadBalancer);
 			lbStream.close();
 		} catch (Exception e) {
@@ -436,9 +449,8 @@ public class CloudSimSpotInstanceScalar extends SpotInstanceScalar{
 		cloudSimBroker.createVmsAfter(initialVms, 2);
 		Date startTime = null;
 		startTime = new Date(Long.parseLong(args[1]));
-		
 		mainLog.info(logFormatter.getMessage("Set start simulation time at " + startTime));
-		//System.out.println(startTime.toGMTString());
+//		System.out.println(startTime.toString());
 		TimeConverter.setSimulationStartTime(startTime);
 		
 		int initialVmNumber = Integer.parseInt(properties.getProperty(INITIAL_VM_NUM));
@@ -455,11 +467,51 @@ public class CloudSimSpotInstanceScalar extends SpotInstanceScalar{
 		eventLogger.info(logFormatter.getMessage("total nominal capacity: " + systemStatus.getNominalCapacity()));
 		
 		mainLog.info(logFormatter.getMessage("End Starting the initial vms"));
-		CloudSim.startSimulation();
+		double endTime = CloudSim.startSimulation();
+//		double endTime = CloudSim.clock();
 		CloudSim.stopSimulation();
-		long endTime = (long)CloudSim.clock();
+		//Closing the streams that are opened for collecting data. At the end of simulation.
+		CloudSimRequestEstimationHandler r = (CloudSimRequestEstimationHandler)eventHandlers.get(Events.REQUEST_ESTIMATE_EVENT);
+		r.getPrintWriter().flush();
+		r.getPrintWriter().close();
 		Date endTimeDate = TimeConverter.convertSimulationTimeToDate(endTime);
 		mainLog.info(logFormatter.getMessage("End Simulation Time " + endTimeDate));
+		if(loadBalancer !=null) {
+			double totalCost = 0.0;
+			CloudSimLoadBalancer lb = (CloudSimLoadBalancer) loadBalancer;
+			Map<String, Double> cost = lb.getCostOfInstances();
+			 Iterator<String> keysIterator = cost.keySet().iterator();
+			 while(keysIterator.hasNext()) {
+				 totalCost += cost.get(keysIterator.next());
+			 }
+			 
+			 List<InstanceStatus> i = lb.getInstancesStillOnline();
+			 double costOfUsage = 0.0;
+			 for(InstanceStatus inst : i) {
+				 //Checking if its already billed
+				 boolean isBilled = lb.getCostOfInstances().containsKey(inst.getId());
+				 if(!isBilled) {
+					mainLog.info("Instance online @last entry:"+inst.getId()+"\tstatus:"+inst.getRunningStatus());
+				// Date endTime = TimeConverter.convertSimulationTimeToDate(CloudSim.clock());
+				 Date launchTime = lb.getBillableInstances().get(inst.getId()); 
+					LocalDateTime launch = LocalDateTime.of(launchTime.getYear(), launchTime.getMonth() + 1,
+							launchTime.getDay(), launchTime.getHours(), launchTime.getMinutes(),
+							launchTime.getSeconds());
+					LocalDateTime end = LocalDateTime.of(endTimeDate.getYear(), endTimeDate.getMonth() + 1, endTimeDate.getDay(),
+							endTimeDate.getHours(), endTimeDate.getMinutes(), endTimeDate.getSeconds());
+					Duration d = Duration.between(launch, end);
+					long durationInMinutes = d.toMinutes(); 
+					double durationInHours = (double) durationInMinutes / 60;// Duration.between(launch, end).toHours();
+					double finalDurationInHours= Math.ceil(durationInHours);
+					double price = lb.getInstancePrice(inst);
+					costOfUsage = price * finalDurationInHours;
+			 }
+			 }
+			mainLog.info("Total cost of instances used:"+totalCost);
+			mainLog.info("Total cost of instances online:"+costOfUsage);
+			mainLog.info("Total cost of run:"+(totalCost + costOfUsage));
+			
+		}
 	}
 
 	/**

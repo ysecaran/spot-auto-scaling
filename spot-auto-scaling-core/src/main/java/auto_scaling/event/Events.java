@@ -18,4 +18,6 @@ public class Events {
 	public static final String INSTANCES_IMPAIRED_EVENT = "instances_impaired_event";
 	public static final String SPOT_INSTANCES_TERMINATION_EVENT = "spot_instances_termination_event";
 	public static final String SPOT_REQUESTS_CLOSED_BEFORE_FULLFILLMENT_EVENT = "spot_requests_closed_before_fullfillment_event";
+	public static final String REQUEST_ESTIMATE_EVENT ="request_estimate_event";
+	public static final String REQUEST_FORECAST_EVENT ="request_forecast_event";
 }
