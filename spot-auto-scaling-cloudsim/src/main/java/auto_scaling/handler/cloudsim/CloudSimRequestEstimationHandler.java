@@ -1,13 +1,10 @@
 package auto_scaling.handler.cloudsim;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Queue;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -19,9 +16,6 @@ import auto_scaling.cloud.InstanceTemplate;
 import auto_scaling.cloud.RunningStatus;
 import auto_scaling.core.SystemStatus;
 import auto_scaling.event.Event;
-import auto_scaling.event.EventGenerator;
-import auto_scaling.event.EventQueueManager;
-import auto_scaling.event.Events;
 import auto_scaling.event.RequestEstimateEvent;
 import auto_scaling.handler.EventHandler;
 import auto_scaling.util.cloudsim.TimeConverter;
@@ -70,7 +64,6 @@ public class CloudSimRequestEstimationHandler extends EventHandler {
 		// Calculate the estimated number of request and log it to the file as
 		// time,noOfRequest
 		SystemStatus systemStatus = SystemStatus.getSystemStatus();
-		double forecastWindow = systemStatus.getForecastTimeWindow();
 		// update the estimated request rate
 		synchronized (systemStatus) {
 			Collection<InstanceStatus> allInstances = systemStatus.getAllInstances();
@@ -88,21 +81,6 @@ public class CloudSimRequestEstimationHandler extends EventHandler {
 			}
 			estimateWriter.println(TimeConverter.convertSimulationTimeToString(CloudSim.clock())+","+totalNumOfRequests);
 //			if(lastEstimate != totalNumOfRequests) {
-			double cTime = Math.floor(CloudSim.clock());
-			if((cTime % forecastWindow) == 0) {
-				//Time to flush the stream and trigger the forecast event which sets the min and max estimate as part of the systemStatus
-				expectLog.info("Flushing in progress- check file");
-				estimateWriter.flush();
-				//Trigger the event here
-				Map<String, Object> data = new HashMap<String, Object>();
-				Event forecastEvent = EventGenerator.getEventGenerator().generateEvent(Events.REQUEST_FORECAST_EVENT, data);
-				
-				Queue<Event> eventQueue = EventQueueManager.getEventsQueue();
-				eventQueue.add(forecastEvent);
-				expectLog.info(logFormatter.getGenerateEventLogString(forecastEvent, "Request Forecast Event"));
-				eventHandlerLog.info(logFormatter.getGenerateEventLogString(
-						forecastEvent, "Forecast event triggered"));
-			}
 			expectLog.info(TimeConverter.convertSimulationTimeToDate(CloudSim.clock())+"\t"+totalNumOfRequests);
 			lastEstimate = totalNumOfRequests;
 //			}

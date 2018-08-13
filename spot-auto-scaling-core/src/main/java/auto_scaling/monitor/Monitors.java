@@ -17,4 +17,5 @@ public class Monitors {
 	public static final String SPOT_REQUESTS_MONITOR = "Spot Requests Monitor";
 	public static final String VM_STATUS_MONITOR = "VM Status Monitor";
 	public static final String REQUEST_ESTIMATION_MONITOR = "Request Estimation Monitor";
+	public static final String REQUEST_FORECAST_MONITOR = "Request Forecast Monitor";
 }
