@@ -123,6 +123,7 @@ public class ResourceRequirementUpdateEventHandler extends EventHandler {
 			
 			systemStatus.setTotalNumOfRequests(totalNumOfRequests);
 			eventHandlerLog.info(logFormatter.getMessage("total estimated number of requests: " + totalNumOfRequests));
+			eventHandlerLog.info(logFormatter.getMessage("old number of requests: " + oldTotalNumOfRequests));
 		}
 		
 		//fire an about to scale up event for further processing

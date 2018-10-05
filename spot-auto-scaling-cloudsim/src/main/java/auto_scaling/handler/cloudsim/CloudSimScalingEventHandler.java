@@ -127,6 +127,8 @@ public class CloudSimScalingEventHandler extends ScalingEventHandler {
 
 		eventHandlerLog.info(logFormatter.getMessage("system status:\n"
 				+ systemStatus.dumpStatus()));
+		eventHandlerLog.info(logFormatter.getMessage("total available capacity: "
+				+ systemStatus.getAvailableCapacity()));
 		eventHandlerLog.info(logFormatter.getMessage("total nominal capacity: "
 				+ systemStatus.getNominalCapacity()));
 	}
