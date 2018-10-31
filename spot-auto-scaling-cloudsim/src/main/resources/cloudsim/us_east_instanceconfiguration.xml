@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 	<resource_types>
-		<cpu threshold="xxx (0.75)" max_threshold="xxx (0.9)"/>
-		<memory threshold="xxx (0.9)" max_threshold="xxx (0.9)"/>
+		<cpu threshold="0.75" max_threshold="0.9"/>
+		<memory threshold="0.9" max_threshold="0.9"/>
 	</resource_types>
 	<instance_types>
 		<instance_type>

@@ -24,5 +24,9 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="src" path="/spot-auto-scaling-core"/>
+	<classpathentry kind="lib" path="C:/CloudSim/cloudsim-4.0/jars/cloudsim-4.0.jar"/>
+	<classpathentry kind="lib" path="C:/CloudSim/cloudsim-4.0/jars/cloudsim-examples-4.0.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Yuvha Secaran/Documents/R/win-library/3.3/Rserve/java/REngine.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Yuvha Secaran/Documents/R/win-library/3.3/Rserve/java/Rserve.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>
